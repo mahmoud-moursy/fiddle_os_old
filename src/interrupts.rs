@@ -1,3 +1,5 @@
+use x86_64::registers::control::Cr2;
+use x86_64::structures::idt::PageFaultErrorCode;
 use x86_64::structures::idt::{ InterruptDescriptorTable, InterruptStackFrame };
 use crate::{println, text};
 
@@ -39,7 +41,7 @@ lazy_static! {
 
 		idt.breakpoint.set_handler_fn(breakpoint_handler);
 		idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
-		idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_handler);
+		idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(crate::driver::keyboard::keyboard_handler);
 
 		unsafe {
 			idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
@@ -60,43 +62,9 @@ use pc_keyboard::ScancodeSet1;
 use pc_keyboard::DecodedKey;
 use pc_keyboard::layouts;
 use pc_keyboard::HandleControl;
+use pc_keyboard::KeyCode;
 
 use spin::Mutex;
-
-extern "x86-interrupt" fn keyboard_handler(
-		stack_frame: InterruptStackFrame
-) {
-	use x86_64::instructions::port::Port;
-
-	let mut port = Port::new(0x60);
-	let scancode: u8 = unsafe { port.read() };
-
-
-	lazy_static! {
-        static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> =
-            Mutex::new(Keyboard::new(layouts::Us104Key, ScancodeSet1,
-                HandleControl::Ignore)
-            );
-  }
-
-	let mut keyboard = KEYBOARD.lock();
-
-	if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
-        if let Some(key) = keyboard.process_keyevent(key_event) {
-            match key {
-                DecodedKey::Unicode(character) => print!("{}", character),
-                DecodedKey::RawKey(key) => print!("{:?}", key),
-            }
-        }
-    }
-
-
-
-	unsafe {
-        PICS.lock()
-            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
-	}
-}
 
 extern "x86-interrupt" fn timer_handler(
 		stack_frame: InterruptStackFrame
@@ -105,6 +73,13 @@ extern "x86-interrupt" fn timer_handler(
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
   }
+}
+
+extern "x86-interrupt" fn page_fault_handler(
+    stack_frame: InterruptStackFrame,
+    error_code: PageFaultErrorCode
+) {
+    panic!("EXCEPTION: PAGE FAULT\nAttempted to access: {:?}\nError kind: {:?}\n{:#?}", Cr2::read(), error_code, stack_frame)
 }
 
 extern "x86-interrupt" fn breakpoint_handler(

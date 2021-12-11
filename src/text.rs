@@ -65,6 +65,18 @@ impl Writer {
 				}
 				self.cursor = 0;
 	}
+	pub fn clear_last(&mut self) {
+		if self.cursor != 0 {
+			self.cursor -= 1;
+		}
+		if self.slice[self.cursor * 2 + 1] == PANIC_CLR {
+			self.cursor += 1;
+			// Stops the cursor from going before a specified colour
+			return;
+		}
+		self.slice[self.cursor * 2] = b' ';
+		self.slice[self.cursor * 2 + 1] = SCREEN_CLR.lock().clone();
+	}
 }
 
 use core::fmt::Write;

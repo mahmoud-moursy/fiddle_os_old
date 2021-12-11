@@ -12,6 +12,7 @@ use core::panic::PanicInfo;
 pub mod interrupts;
 pub mod text;
 pub mod gdt;
+pub mod driver;
 
 use x86_64::structures::idt::InterruptStackFrame;
 
@@ -47,9 +48,15 @@ pub fn _start() -> ! {
     // Let later programs lock onto writer.
     drop(writer);
 
-
+    prompt(['\u{0}'; 128]);
 
     loop {
         x86_64::instructions::hlt();
     }
+}
+
+pub fn prompt(inp: [char; 128]) {
+    println!("{:?}", inp);
+    let mut writer= text::WRITER.lock();
+    writer.display(" $", text::PANIC_CLR)
 }
