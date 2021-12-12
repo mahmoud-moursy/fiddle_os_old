@@ -35,7 +35,7 @@ lazy_static! {
 
 pub struct Writer {
 	slice: &'static mut [u8],
-	cursor: usize
+	pub cursor: usize
 }
 
 impl Writer {
@@ -49,7 +49,7 @@ impl Writer {
 			}
 			if chr == b'\n' {
 				for _ in 0..80-(self.cursor%80) {
-					write!(self, " ").unwrap();
+					self.display(" ", *SCREEN_CLR.lock());
 				}
 				continue
 			}
@@ -57,6 +57,20 @@ impl Writer {
 		    	self.slice[self.cursor * 2 + 1] = attr;
 			self.cursor += 1;
     }
+	}
+	pub fn display_overwrite(&mut self, to_display: &str, attr: u8) {
+		let last = self.cursor;
+		*SCREEN_CLR.lock() = attr;
+		write!(self, "{}", to_display);
+		*SCREEN_CLR.lock() = DEFAULT_CLR;
+		self.cursor = last;
+	}
+	pub fn blink(&mut self) {
+		match self.slice[self.cursor * 2 + 1] & 0xF0 {
+			0x00 => self.slice[self.cursor * 2 + 1] = 0xF0,
+			0xF0 => self.slice[self.cursor * 2 + 1] = 0x0F,
+			any => {}
+		}
 	}
 	pub fn clear(&mut self, colour: u8) {
 		for i in 0..80*25 {

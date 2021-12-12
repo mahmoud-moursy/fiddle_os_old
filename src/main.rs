@@ -6,13 +6,17 @@
 
 extern crate bootloader;
 
+use bootloader::{ BootInfo, entry_point };
+
 use core::fmt::Write;
 use core::panic::PanicInfo;
+use core::str;
 
 pub mod interrupts;
 pub mod text;
 pub mod gdt;
 pub mod driver;
+pub mod memory;
 
 use x86_64::structures::idt::InterruptStackFrame;
 
@@ -32,10 +36,13 @@ fn panic(_info: &PanicInfo) -> ! {
     }
 }
 
+entry_point!(kern_start);
+
 #[no_mangle]
-pub fn _start() -> ! {
+pub fn kern_start(boot_info: &'static BootInfo) -> ! {
     gdt::init();
     interrupts::init_idt();
+
     unsafe { interrupts::PICS.lock().initialize() };
     x86_64::instructions::interrupts::enable();
 
@@ -56,7 +63,10 @@ pub fn _start() -> ! {
 }
 
 pub fn prompt(inp: [char; 128]) {
-    println!("{:?}", inp);
+    let inp: &[u8; 128] = &inp.map(|x| x as u8);
+    let inp = str::from_utf8(inp).unwrap();
+    println!("{}", inp);
     let mut writer= text::WRITER.lock();
-    writer.display(" $", text::PANIC_CLR)
+    writer.display(" $", text::PANIC_CLR);
+    writer.blink();
 }
