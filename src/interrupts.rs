@@ -1,7 +1,7 @@
 use x86_64::registers::control::Cr2;
 use x86_64::structures::idt::PageFaultErrorCode;
 use x86_64::structures::idt::{ InterruptDescriptorTable, InterruptStackFrame };
-use crate::{println, text};
+use crate::{println};
 
 use lazy_static::lazy_static;
 
@@ -42,6 +42,7 @@ lazy_static! {
 		idt.breakpoint.set_handler_fn(breakpoint_handler);
 		idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_handler);
 		idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(crate::driver::keyboard::keyboard_handler);
+		idt.page_fault.set_handler_fn(page_fault_handler);
 
 		unsafe {
 			idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
@@ -51,23 +52,12 @@ lazy_static! {
 	};
 }
 
-use crate::print;
-
 pub fn init_idt() {
 	IDT.load();
 }
 
-use pc_keyboard::Keyboard;
-use pc_keyboard::ScancodeSet1;
-use pc_keyboard::DecodedKey;
-use pc_keyboard::layouts;
-use pc_keyboard::HandleControl;
-use pc_keyboard::KeyCode;
-
-use spin::Mutex;
-
 extern "x86-interrupt" fn timer_handler(
-		stack_frame: InterruptStackFrame
+		_stack_frame: InterruptStackFrame
 ) {
 	unsafe {
         PICS.lock()

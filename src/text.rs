@@ -53,28 +53,29 @@ impl Writer {
 				}
 				continue
 			}
-		    	self.slice[self.cursor * 2] = chr;
-		    	self.slice[self.cursor * 2 + 1] = attr;
+			self.slice[self.cursor * 2] = chr;
+			self.slice[self.cursor * 2 + 1] = attr;
 			self.cursor += 1;
     }
 	}
 	pub fn display_overwrite(&mut self, to_display: &str, attr: u8) {
 		let last = self.cursor;
-		*SCREEN_CLR.lock() = attr;
-		write!(self, "{}", to_display);
-		*SCREEN_CLR.lock() = DEFAULT_CLR;
+		self.display(to_display, attr);
 		self.cursor = last;
 	}
 	pub fn blink(&mut self) {
+		if self.cursor == 2000 {
+			self.clear(*SCREEN_CLR.lock());
+		}
 		match self.slice[self.cursor * 2 + 1] & 0xF0 {
 			0x00 => self.slice[self.cursor * 2 + 1] = 0xF0,
 			0xF0 => self.slice[self.cursor * 2 + 1] = 0x0F,
-			any => {}
+			_any => {}
 		}
 	}
 	pub fn clear(&mut self, colour: u8) {
-		for i in 0..80*25 {
-						self.slice[i * 2] = b' ';
+				for i in 0..80*25 {
+						self.slice[i * 2] = 0;
 						self.slice[i * 2 + 1] = colour;
 				}
 				self.cursor = 0;
@@ -88,8 +89,8 @@ impl Writer {
 			// Stops the cursor from going before a specified colour
 			return;
 		}
-		self.slice[self.cursor * 2] = b' ';
-		self.slice[self.cursor * 2 + 1] = SCREEN_CLR.lock().clone();
+		self.slice[self.cursor * 2] = 0;
+		self.slice[self.cursor * 2 + 1] = *SCREEN_CLR.lock();
 	}
 }
 
